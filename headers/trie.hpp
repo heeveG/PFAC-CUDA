@@ -22,7 +22,7 @@ struct trie {
     struct {
         trie *ptr = nullptr;
     } next[26];
-    int count = 0;
+    int id = -1;
 };
 #endif
 

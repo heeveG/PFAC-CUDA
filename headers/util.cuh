@@ -10,6 +10,7 @@
 #include <fstream>
 #include <vector>
 #include <iostream>
+#include <unordered_map>
 
 #include "trie.hpp"
 
@@ -36,18 +37,14 @@ inline long long to_us(const D &d) {
     return std::chrono::duration_cast<std::chrono::microseconds>(d).count();
 }
 
-template<class String>
-void read_data(String &input, const std::vector<std::string> &files);
-
-
 __global__
-void matchWords(const char *str, size_t *matched, int size);
+void matchWords(const char *str, int * matched, trie *root, int size);
 
 template<class String>
 void do_trie(String const &input, bool use_simt, int blocks, int threads);
 
 __host__
-void host_make_trie(trie &root, trie *&bump, const char *begin, const char *end);
+int host_make_trie(trie &root, trie *&bump, const char *begin, const char *end, std::unordered_map<std::string, int> &patternIdMap);
 
 __host__ __device__
 void device_make_trie(trie &root, simt::std::atomic<trie *> &bump, const char *begin, const char *end, unsigned index,
@@ -58,6 +55,8 @@ void gpu_make_trie(trie *t, simt::std::atomic<trie *> *bump, const char *begin, 
 
 __host__ __device__
 int index_of(char c);
+
+bool validateResult(const char *csvPath, std::unordered_map<std::string, int> &patternIdMap, int *matches);
 
 #include "util.tcc"
 

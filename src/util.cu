@@ -12,27 +12,25 @@ int index_of(char c) {
     return -1;
 };
 
-__global__
-void matchWords(const char *str, size_t *matched, const trie &root, int size) {
+__global__ void matchWords(const char *str, int *matched, trie *root, int size) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
-
     const trie *node;
 
     for (int iter = i; iter < size; iter += stride) {
-        node = &root;
+        node = root;
         while (i < size) {
-            char letter = str[i];
+            int index = index_of(str[i]);
 
-            const trie * child_node = node->next[index_of(letter)].ptr;
-            if (child_node == nullptr) {
+            if (index == -1)
                 break;
-            }
 
-            node = child_node;
-            if (node->count) {
-                // $TODO - register match
-            }
+            node = node->next[index].ptr;
+            if (node == nullptr)
+                break;
+
+            if (node->id != -1)
+                atomicAdd(&matched[node->id], 1);
 
             ++i;
         }
@@ -42,21 +40,34 @@ void matchWords(const char *str, size_t *matched, const trie &root, int size) {
 }
 
 __host__
-void host_make_trie(trie &root, trie *&bump, const char *begin, const char *end) {
+int host_make_trie(trie &root, trie *&bump, const char *begin, const char *end,
+                   std::unordered_map<std::string, int> &patternIdMap) {
+    int patternId = 0;
+    int counter = 0;
+    std::string word;
     auto n = &root;
     for (auto pc = begin; pc != end; ++pc) {
         auto const index = index_of(*pc);
         if (index == -1) {
             if (n != &root) {
-                n->count++;
+                if (n->id == -1) { // $todo account for data race in multithreaded
+                    n->id = patternId++;
+                    patternIdMap.insert(std::make_pair(word, n->id));
+                } else
+                    counter++;
                 n = &root;
             }
+            word = "";
             continue;
         }
+        word += *pc;
         if (n->next[index].ptr == nullptr)
             n->next[index].ptr = bump++;
         n = n->next[index].ptr;
     }
+
+    std::cout << "same patterns: " << counter << std::endl;
+    return patternId;
 }
 
 // $TODO - add Turing support
@@ -112,3 +123,27 @@ void host_make_trie(trie &root, trie *&bump, const char *begin, const char *end)
 //
 //}
 
+bool validateResult(const char *csvPath, std::unordered_map<std::string, int> &patternIdMap, int *matches) {
+    std::unordered_map<std::string, int> validMatches;
+
+    // read valid results
+    std::ifstream fin(csvPath);
+    if (!fin.good()) {
+        std::cerr << "Error opening '" << "'. Bailing out." << std::endl;
+        exit(-1);
+    }
+
+    std::string pattern;
+    int count;
+
+    while (fin >> pattern >> count)
+        validMatches[pattern] = count;
+
+    fin.close();
+
+    // validate
+    for (const auto & match : validMatches)
+        if (matches[patternIdMap.at(match.first)] != match.second)
+            return false;
+    return true;
+}

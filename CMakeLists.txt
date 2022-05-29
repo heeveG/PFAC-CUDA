@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 project(pfac LANGUAGES CXX CUDA)
 
 add_compile_options(-G)
-add_compile_options(-arch compute_61)
+#add_compile_options(-arch compute_61)
 add_compile_options(--expt-relaxed-constexpr)
 
 set(CMAKE_CUDA_COMPILER /usr/local/cuda/bin/nvcc) # $TODO - remove

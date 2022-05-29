@@ -11,10 +11,10 @@ struct managed_allocator {
     typedef simt::std::ptrdiff_t difference_type;
 
     typedef T value_type;
-    typedef T* pointer;
-    typedef const T* const_pointer;
-    typedef T& reference;
-    typedef const T& const_reference;
+    typedef T* pointer;// (deprecated in C++17)(removed in C++20)	T*
+    typedef const T* const_pointer;// (deprecated in C++17)(removed in C++20)	const T*
+    typedef T& reference;// (deprecated in C++17)(removed in C++20)	T&
+    typedef const T& const_reference;// (deprecated in C++17)(removed in C++20)	const T&
 
     template< class U > struct rebind { typedef managed_allocator<U> other; };
     managed_allocator() = default;
@@ -25,7 +25,7 @@ struct managed_allocator {
         return static_cast<T*>(out);
     }
     void deallocate(T* p, std::size_t) noexcept {
-        check(cudaFree(p));
+//        check(cudaFree(p));
     }
 };
 
