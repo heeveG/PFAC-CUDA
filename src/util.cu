@@ -10,7 +10,34 @@ int index_of(char c) {
     if (c >= 'a' && c <= 'z') return c - 'a';
     if (c >= 'A' && c <= 'Z') return c - 'A';
     return -1;
-};
+}
+
+__host__
+void host_make_trie(trie &root, trie *&bump, const char *begin, const char *end,
+                    std::unordered_map<std::string, int> &patternIdMap) {
+    int patternId = 0;
+    std::string word;
+
+    auto n = &root;
+    for (auto pc = begin; pc != end; ++pc) {
+        auto const index = index_of(*pc);
+        if (index == -1) {
+            if (n != &root) {
+                if (n->id == -1) { // $todo account for data race in multithreaded
+                    n->id = patternId++;
+                    patternIdMap.insert(std::make_pair(word, n->id));
+                }
+                n = &root;
+            }
+            word = "";
+            continue;
+        }
+        word += tolower(*pc);
+        if (n->next[index].ptr == nullptr)
+            n->next[index].ptr = bump++;
+        n = n->next[index].ptr;
+    }
+}
 
 __global__ void matchWords(const char *str, int *matched, trie *root, int size) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -39,36 +66,38 @@ __global__ void matchWords(const char *str, int *matched, trie *root, int size) 
     }
 }
 
-__host__
-int host_make_trie(trie &root, trie *&bump, const char *begin, const char *end,
-                   std::unordered_map<std::string, int> &patternIdMap) {
-    int patternId = 0;
-    int counter = 0;
-    std::string word;
-    auto n = &root;
-    for (auto pc = begin; pc != end; ++pc) {
-        auto const index = index_of(*pc);
-        if (index == -1) {
-            if (n != &root) {
-                if (n->id == -1) { // $todo account for data race in multithreaded
-                    n->id = patternId++;
-                    patternIdMap.insert(std::make_pair(word, n->id));
-                } else
-                    counter++;
-                n = &root;
-            }
-            word = "";
-            continue;
-        }
-        word += *pc;
-        if (n->next[index].ptr == nullptr)
-            n->next[index].ptr = bump++;
-        n = n->next[index].ptr;
+bool validateResult(const char *csvPath, std::unordered_map<std::string, int> &patternIdMap, const int *matches) {
+    std::unordered_map<std::string, int> validMatches;
+
+    // read valid results
+    std::ifstream fin(csvPath);
+    if (!fin.good()) {
+        std::cerr << "Error opening '" << "'. Bailing out." << std::endl;
+        exit(-1);
     }
 
-    std::cout << "same patterns: " << counter << std::endl;
-    return patternId;
+    std::string line, pattern, count;
+    std::stringstream ss;
+    char *endP;
+    while (getline(fin, line)) {
+        ss << line;
+        getline(ss, pattern, ',');
+        getline(ss, count, ',');
+        validMatches.insert(std::make_pair(pattern, strtol(count.data(), &endP, 10)));
+        ss.clear();
+    }
+
+    fin.close();
+
+    // validate
+    for (const auto &match : validMatches)
+        if (patternIdMap.find(match.first) == patternIdMap.end() ||
+            matches[patternIdMap.at(match.first)] != match.second)
+            return false;
+
+    return patternIdMap.size() == validMatches.size();
 }
+
 
 // $TODO - add Turing support
 //__host__ __device__
@@ -122,28 +151,3 @@ int host_make_trie(trie &root, trie *&bump, const char *begin, const char *end,
 //    make_trie(*t, *bump, begin, end, index, domain);
 //
 //}
-
-bool validateResult(const char *csvPath, std::unordered_map<std::string, int> &patternIdMap, int *matches) {
-    std::unordered_map<std::string, int> validMatches;
-
-    // read valid results
-    std::ifstream fin(csvPath);
-    if (!fin.good()) {
-        std::cerr << "Error opening '" << "'. Bailing out." << std::endl;
-        exit(-1);
-    }
-
-    std::string pattern;
-    int count;
-
-    while (fin >> pattern >> count)
-        validMatches[pattern] = count;
-
-    fin.close();
-
-    // validate
-    for (const auto & match : validMatches)
-        if (matches[patternIdMap.at(match.first)] != match.second)
-            return false;
-    return true;
-}

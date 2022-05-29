@@ -11,6 +11,7 @@
 #include <vector>
 #include <iostream>
 #include <unordered_map>
+#include <sstream>
 
 #include "trie.hpp"
 
@@ -44,7 +45,7 @@ template<class String>
 void do_trie(String const &input, bool use_simt, int blocks, int threads);
 
 __host__
-int host_make_trie(trie &root, trie *&bump, const char *begin, const char *end, std::unordered_map<std::string, int> &patternIdMap);
+void host_make_trie(trie &root, trie *&bump, const char *begin, const char *end, std::unordered_map<std::string, int> &patternIdMap);
 
 __host__ __device__
 void device_make_trie(trie &root, simt::std::atomic<trie *> &bump, const char *begin, const char *end, unsigned index,
@@ -56,7 +57,7 @@ void gpu_make_trie(trie *t, simt::std::atomic<trie *> *bump, const char *begin, 
 __host__ __device__
 int index_of(char c);
 
-bool validateResult(const char *csvPath, std::unordered_map<std::string, int> &patternIdMap, int *matches);
+bool validateResult(const char *csvPath, std::unordered_map<std::string, int> &patternIdMap, const int *matches);
 
 #include "util.tcc"
 
