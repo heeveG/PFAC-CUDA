@@ -20,7 +20,7 @@ int main() {
 
     // build trie
     std::unordered_map<std::string, int> patternIdMap;
-    std::vector<trie, managed_allocator<trie>> nodes(1 << 17);
+    std::vector<trieOptimized, managed_allocator<trieOptimized>> nodes(1 << 17);
 
     do_trie(nodes, input, patternIdMap);
 
@@ -40,7 +40,7 @@ int main() {
     check(cudaMalloc(&d_matched, numPatterns * sizeof(int)));
 //    check(cudaMemcpy(d_input, input.data(), input.size(), cudaMemcpyHostToDevice));
 
-    check(cudaMemPrefetchAsync(nodes.data(), 80564 * sizeof(trie), 0));
+    check(cudaMemPrefetchAsync(nodes.data(), 80564 * sizeof(trieOptimized), 0));
     check(cudaMemPrefetchAsync(input.data(), input.size(), 0));
 
     // perform matching

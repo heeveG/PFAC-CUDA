@@ -24,6 +24,16 @@ struct trie {
     } next[26];
     int id = -1;
 };
+
+struct trieOptimized {
+    int next[26]{};
+    int id = -1;
+};
 #endif
+
+struct trieOptimized {
+    int next[26]{};
+    int id = -1;
+};
 
 #endif //CMAKE_AND_CUDA_TRIE_H

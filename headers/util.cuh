@@ -39,17 +39,18 @@ inline long long to_us(const D &d) {
 }
 
 __global__
-void matchWords(const char *str, int * matched, trie *root, int size);
+void matchWords(const char *str, int *matched, trieOptimized *root, int size);
 
 template<class String>
 void do_trie(String const &input, bool use_simt, int blocks, int threads);
 
 __host__
-void host_make_trie(trie &root, trie *&bump, const char *begin, const char *end, std::unordered_map<std::string, int> &patternIdMap);
+void host_make_trie(trieOptimized *root, const char *begin, const char *end,
+                    std::unordered_map<std::string, int> &patternIdMap);
 
 __host__ __device__
 void device_make_trie(trie &root, simt::std::atomic<trie *> &bump, const char *begin, const char *end, unsigned index,
-               unsigned domain);
+                      unsigned domain);
 
 __global__
 void gpu_make_trie(trie *t, simt::std::atomic<trie *> *bump, const char *begin, const char *end);

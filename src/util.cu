@@ -13,36 +13,37 @@ int index_of(char c) {
 }
 
 __host__
-void host_make_trie(trie &root, trie *&bump, const char *begin, const char *end,
+void host_make_trie(trieOptimized *root, const char *begin, const char *end,
                     std::unordered_map<std::string, int> &patternIdMap) {
     int patternId = 0;
+    int bump = 0;
     std::string word;
 
-    auto n = &root;
+    auto n = root;
     for (auto pc = begin; pc != end; ++pc) {
         auto const index = index_of(*pc);
         if (index == -1) {
-            if (n != &root) {
+            if (n != root) {
                 if (n->id == -1) { // $todo account for data race in multithreaded
                     n->id = patternId++;
                     patternIdMap.insert(std::make_pair(word, n->id));
                 }
-                n = &root;
+                n = root;
             }
             word = "";
             continue;
         }
         word += tolower(*pc);
-        if (n->next[index].ptr == nullptr)
-            n->next[index].ptr = bump++;
-        n = n->next[index].ptr;
+        if (n->next[index] == 0)
+            n->next[index] = ++bump;
+        n = root + n->next[index];
     }
 }
 
-__global__ void matchWords(const char *str, int *matched, trie *root, int size) {
+__global__ void matchWords(const char *str, int *matched, trieOptimized *root, int size) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
-    const trie *node;
+    const trieOptimized *node;
 
     for (int iter = i; iter < size; iter += stride) {
         node = root;
@@ -52,9 +53,11 @@ __global__ void matchWords(const char *str, int *matched, trie *root, int size) 
             if (index == -1)
                 break;
 
-            node = node->next[index].ptr;
-            if (node == nullptr)
+            int nextIndex = node->next[index];
+            if (nextIndex == 0)
                 break;
+
+            node = root + node->next[index];
 
             if (node->id != -1)
                 atomicAdd(&matched[node->id], 1);
