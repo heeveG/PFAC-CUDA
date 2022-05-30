@@ -39,13 +39,10 @@ inline long long to_us(const D &d) {
 }
 
 __global__
-void matchWords(const char *str, int *matched, trieOptimized *root, int size);
-
-template<class String>
-void do_trie(String const &input, bool use_simt, int blocks, int threads);
+void matchWords(const char *str, int *matched, trieOptimized *root, int streamSize, int size);
 
 __host__
-void host_make_trie(trieOptimized *root, const char *begin, const char *end,
+int host_make_trie(trieOptimized *root, const char *begin, const char *end,
                     std::unordered_map<std::string, int> &patternIdMap);
 
 __host__ __device__
