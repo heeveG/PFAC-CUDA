@@ -17,11 +17,11 @@ struct managed_allocator {
     template <class U> constexpr managed_allocator(const managed_allocator<U>&) noexcept {}
     T* allocate(std::size_t n) {
         void* out = nullptr;
-        check(cudaMallocManaged(&out, n*sizeof(T)));
+        check(cudaMallocHost(&out, n*sizeof(T)));
         return static_cast<T*>(out);
     }
     void deallocate(T* p, std::size_t) noexcept {
-        check(cudaFree(p));
+        check(cudaFreeHost(p));
     }
 };
 

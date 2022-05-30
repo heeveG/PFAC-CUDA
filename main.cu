@@ -29,28 +29,33 @@ int main() {
 
     const int blockSize = 256;
     const int numBlocks = 1024;
-    const int numStreams = 16;
+    const int numStreams = 32;
     unsigned long streamBytes = input.size() / numStreams;
     cudaStream_t streams[numStreams];
     for (auto &stream : streams) check(cudaStreamCreate(&stream));
 
     int *matches = (int *) malloc(numPatterns * sizeof(int));
     int *d_matched;
+    char *d_input;
+    trieOptimized *d_trie;
     check(cudaMalloc(&d_matched, numPatterns * sizeof(int)));
+    check(cudaMalloc(&d_input, input.size()));
+    check(cudaMalloc(&d_trie, numNodes * sizeof(trieOptimized)));
 
     const char *inputPtr = input.data();
 
     float matchingTime = cudaEventProfile([&]() {
         // prefetch trie
-        check(cudaMemPrefetchAsync(nodes.data(), numNodes * sizeof(trieOptimized), 0));
+        check(cudaMemcpyAsync(d_trie, nodes.data(), numNodes * sizeof(trieOptimized), cudaMemcpyHostToDevice));
 
         // run staged copy-execute of input string and kernel
         for (int i = 0; i < numStreams; ++i) {
             unsigned long offset = i * streamBytes;
             unsigned long inputBytes = i == numStreams - 1 ? input.size() - offset : streamBytes;
 
-            check(cudaMemPrefetchAsync(&inputPtr[offset], inputBytes, 0, streams[i]));
-            matchWords<<<numBlocks / numStreams, blockSize, 0, streams[i]>>>(&inputPtr[offset], d_matched, root,
+            check(cudaMemcpyAsync((void **) &d_input[offset], &inputPtr[offset], inputBytes, cudaMemcpyHostToDevice,
+                                  streams[i]));
+            matchWords<<<numBlocks / numStreams, blockSize, 0, streams[i]>>>(&d_input[offset], d_matched, d_trie,
                                                                              inputBytes, input.size());
         }
         // copy results back to host
@@ -59,12 +64,13 @@ int main() {
 
     // validate results
     if (validateResult("../validation/results.csv", patternIdMap, matches))
-        std::cout << "Matching completed successfully in: " << matchingTime << " ms. copying: " << std::endl;
+        std::cout << "Matching completed successfully in: " << matchingTime << " ms." << std::endl;
     else
         std::cout << "Invalid results" << std::endl;
 
     free(matches);
     cudaFree(d_matched);
-
+    cudaFree(d_input);
+    cudaFree(d_trie);
     return 0;
 }
