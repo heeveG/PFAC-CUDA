@@ -15,6 +15,8 @@
 
 #include "trie.hpp"
 
+#define M 13
+
 template<class T>
 static constexpr T minimum(T a, T b) { return a < b ? a : b; }
 
@@ -38,12 +40,18 @@ inline long long to_us(const D &d) {
     return std::chrono::duration_cast<std::chrono::microseconds>(d).count();
 }
 
+__global__ void matchWordsStreams(const unsigned char *str, int *matched, trieOptimized *root, unsigned int streamSize,
+                                  unsigned int size);
+
 __global__
-void matchWords(const char *str, int *matched, trieOptimized *root, int streamSize, int size);
+void matchWordsSharedMem(unsigned char *str, unsigned int *matched, trieOptimized *root, unsigned int size, unsigned int sharedMemPerBlock);
+
+    __global__
+void matchWordsSharedMem2(unsigned char *str, unsigned int *matched, trieOptimized *root, unsigned int size, unsigned int sharedMemPerBlock);
 
 __host__
-int host_make_trie(trieOptimized *root, const char *begin, const char *end,
-                    std::unordered_map<std::string, int> &patternIdMap);
+int host_make_trie(trieOptimized *root, const unsigned char *begin, const unsigned char *end,
+                   std::unordered_map<std::string, int> &patternIdMap);
 
 __host__ __device__
 void device_make_trie(trie &root, simt::std::atomic<trie *> &bump, const char *begin, const char *end, unsigned index,
@@ -55,7 +63,7 @@ void gpu_make_trie(trie *t, simt::std::atomic<trie *> *bump, const char *begin, 
 __host__ __device__
 int index_of(char c);
 
-bool validateResult(const char *csvPath, std::unordered_map<std::string, int> &patternIdMap, const int *matches);
+bool validateResult(const char *csvPath, std::unordered_map<std::string, int> &patternIdMap, const unsigned int *matches);
 
 #include "util.tcc"
 

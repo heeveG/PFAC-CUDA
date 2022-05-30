@@ -7,10 +7,11 @@ int main() {
     check(cudaSetDevice(0));
     cudaDeviceProp deviceProp{};
     check(cudaGetDeviceProperties(&deviceProp, 0));
-    std::cout << "GPU used : " << deviceProp.name << std::endl;
+    std::cout << "GPU used : " << deviceProp.name << " " << deviceProp.sharedMemPerMultiprocessor << " "
+              << deviceProp.sharedMemPerBlock << std::endl;
 
     // read input data
-    std::basic_string<char, std::char_traits<char>, managed_allocator<char>> input;
+    std::basic_string<unsigned char, std::char_traits<unsigned char>, managed_allocator<unsigned char>> input;
     std::vector<std::string> files{
             "../data/2600-0.txt", "../data/2701-0.txt", "../data/35-0.txt", "../data/84-0.txt", "../data/8800.txt",
             "../data/pg1727.txt", "../data/pg55.txt", "../data/pg6130.txt", "../data/pg996.txt", "../data/1342-0.txt"
@@ -27,37 +28,32 @@ int main() {
     int numPatterns = patternIdMap.size();
     auto root = nodes.data();
 
-    const int blockSize = 256;
-    const int numBlocks = 1024;
-    const int numStreams = 32;
-    unsigned long streamBytes = input.size() / numStreams;
-    cudaStream_t streams[numStreams];
-    for (auto &stream : streams) check(cudaStreamCreate(&stream));
+    const int sharedMemPerBlock = 16384;
+    const int blockSize = 1024;
+    const int numBlocks = 24;
 
-    int *matches = (int *) malloc(numPatterns * sizeof(int));
-    int *d_matched;
-    char *d_input;
+    auto *matches = (unsigned int *) malloc(numPatterns * sizeof(unsigned int));
+    unsigned int *d_matched;
+    unsigned char *d_input;
     trieOptimized *d_trie;
+
     check(cudaMalloc(&d_matched, numPatterns * sizeof(int)));
     check(cudaMalloc(&d_input, input.size()));
     check(cudaMalloc(&d_trie, numNodes * sizeof(trieOptimized)));
 
-    const char *inputPtr = input.data();
+    const unsigned char *inputPtr = input.data();
 
     float matchingTime = cudaEventProfile([&]() {
         // prefetch trie
-        check(cudaMemcpyAsync(d_trie, nodes.data(), numNodes * sizeof(trieOptimized), cudaMemcpyHostToDevice));
+        check(cudaMemcpy(d_trie, nodes.data(), numNodes * sizeof(trieOptimized), cudaMemcpyHostToDevice));
+        check(cudaMemcpy(d_input, input.data(), input.size(), cudaMemcpyHostToDevice));
 
-        // run staged copy-execute of input string and kernel
-        for (int i = 0; i < numStreams; ++i) {
-            unsigned long offset = i * streamBytes;
-            unsigned long inputBytes = i == numStreams - 1 ? input.size() - offset : streamBytes;
+//        matchWordsSharedMem<<<numBlocks, blockSize, sharedMemPerBlock + M - 1>>>(
+//                d_input, d_matched, d_trie, input.size(), sharedMemPerBlock);
 
-            check(cudaMemcpyAsync((void **) &d_input[offset], &inputPtr[offset], inputBytes, cudaMemcpyHostToDevice,
-                                  streams[i]));
-            matchWords<<<numBlocks / numStreams, blockSize, 0, streams[i]>>>(&d_input[offset], d_matched, d_trie,
-                                                                             inputBytes, input.size());
-        }
+        matchWordsSharedMem2<<<numBlocks, blockSize, sharedMemPerBlock + 16 * ((M - 1) / 16 + 1)>>>(
+                d_input, d_matched, d_trie, input.size(), sharedMemPerBlock);
+        check(cudaDeviceSynchronize());
         // copy results back to host
         check(cudaMemcpy(matches, d_matched, numPatterns * sizeof(int), cudaMemcpyDeviceToHost));
     });
@@ -69,8 +65,8 @@ int main() {
         std::cout << "Invalid results" << std::endl;
 
     free(matches);
-    cudaFree(d_matched);
-    cudaFree(d_input);
-    cudaFree(d_trie);
+    check(cudaFree(d_matched));
+    check(cudaFree(d_input));
+    check(cudaFree(d_trie));
     return 0;
 }
