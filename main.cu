@@ -53,6 +53,7 @@ int main() {
 
         matchWordsSharedMem2<<<numBlocks, blockSize, sharedMemPerBlock + 16 * ((M - 1) / 16 + 1)>>>(
                 d_input, d_matched, d_trie, input.size(), sharedMemPerBlock);
+
         check(cudaDeviceSynchronize());
         // copy results back to host
         check(cudaMemcpy(matches, d_matched, numPatterns * sizeof(int), cudaMemcpyDeviceToHost));

@@ -44,10 +44,16 @@ __global__ void matchWordsStreams(const unsigned char *str, int *matched, trieOp
                                   unsigned int size);
 
 __global__
-void matchWordsSharedMem(unsigned char *str, unsigned int *matched, trieOptimized *root, unsigned int size, unsigned int sharedMemPerBlock);
+void matchWordsSharedMem(unsigned char *str, unsigned int *matched, trieOptimized *root, unsigned int size,
+                         unsigned int sharedMemPerBlock);
 
-    __global__
-void matchWordsSharedMem2(unsigned char *str, unsigned int *matched, trieOptimized *root, unsigned int size, unsigned int sharedMemPerBlock);
+__global__
+void matchWordsSharedMem2(unsigned char *str, unsigned int *matched, trieOptimized *root, unsigned int size,
+                          unsigned int sharedMemPerBlock);
+
+__global__
+void matchWordsSharedMem3(unsigned char *str, unsigned int *matched, trieOptimized *root, unsigned int size,
+                          unsigned int sharedMemPerBlock);
 
 __host__
 int host_make_trie(trieOptimized *root, const unsigned char *begin, const unsigned char *end,
@@ -63,7 +69,8 @@ void gpu_make_trie(trie *t, simt::std::atomic<trie *> *bump, const char *begin, 
 __host__ __device__
 int index_of(char c);
 
-bool validateResult(const char *csvPath, std::unordered_map<std::string, int> &patternIdMap, const unsigned int *matches);
+bool
+validateResult(const char *csvPath, std::unordered_map<std::string, int> &patternIdMap, const unsigned int *matches);
 
 #include "util.tcc"
 

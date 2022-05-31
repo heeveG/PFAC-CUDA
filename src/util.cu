@@ -186,6 +186,53 @@ matchWordsSharedMem2(unsigned char *str, unsigned int *matched, trieOptimized *r
     }
 }
 
+__global__ void
+matchWordsSharedMem3(unsigned char *str, unsigned int *matched, trieOptimized *root, unsigned int size,
+                    unsigned int sharedMemPerBlock) {
+    const trieOptimized *node;
+    int charIndex;
+    unsigned int nextIndex, currentChar;
+    unsigned int threadChunk = sharedMemPerBlock / blockDim.x;
+
+    unsigned int startThread = threadChunk * threadIdx.x;
+    unsigned int stopThread = startThread + threadChunk;
+
+    extern __shared__ unsigned char sArray[];
+
+    for (unsigned int globalIndex = blockIdx.x * sharedMemPerBlock, globalIndexCopy =
+            blockIdx.x * sharedMemPerBlock / sizeof(uint4);
+         globalIndex < size; globalIndex += (gridDim.x * sharedMemPerBlock), globalIndexCopy +=
+                                                                                     gridDim.x * sharedMemPerBlock /
+                                                                                     sizeof(uint4)) {
+
+        ((uint4 *) sArray)[threadIdx.x] = ((uint4 *) str)[threadIdx.x + globalIndexCopy];
+
+        if (threadIdx.x == 0)
+            ((uint4 *) sArray)[sharedMemPerBlock / sizeof(uint4) + threadIdx.x] = ((uint4 *) str)[threadIdx.x +
+                                                                                                  globalIndexCopy +
+                                                                                                  sharedMemPerBlock /
+                                                                                                  sizeof(uint4)];
+
+        __syncthreads();
+
+        for (unsigned int startChar = startThread; (startChar < stopThread &&
+                                                    globalIndex + startChar < size); ++startChar) {
+            node = root;
+            currentChar = startChar;
+            while ((charIndex = index_of(sArray[currentChar])) != -1 &&
+                   (nextIndex = node->next[charIndex]) != 0) {
+                node = root + nextIndex;
+                int nodeId = node->id;
+                if (nodeId != -1) {
+                    atomicAdd(&matched[nodeId], 1);
+                }
+                ++currentChar;
+            }
+        }
+        __syncthreads();
+    }
+}
+
 bool
 validateResult(const char *csvPath, std::unordered_map<std::string, int> &patternIdMap, const unsigned int *matches) {
     std::unordered_map<std::string, int> validMatches;
