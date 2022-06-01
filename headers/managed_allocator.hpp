@@ -7,8 +7,8 @@
 
 template <class T>
 struct managed_allocator {
-    typedef simt::std::size_t size_type;
-    typedef simt::std::ptrdiff_t difference_type;
+    typedef std::size_t size_type;
+    typedef std::ptrdiff_t difference_type;
     typedef T value_type;
 
     template< class U > struct rebind { typedef managed_allocator<U> other; };

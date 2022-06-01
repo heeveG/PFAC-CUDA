@@ -10,24 +10,15 @@
 template<class String>
 int do_trie(std::vector<trieOptimized, managed_allocator<trieOptimized>> &nodes, String const &input,
              std::unordered_map<std::string, int> &patternIdMap) {
-    // #TODO add turing support
-    // if(use_simt) check(cudaMemset(nodes.data(), 0, nodes.size()*sizeof(trie)));
-
     auto t = nodes.data();
-    auto b = make_allocator<trieOptimized *>(nodes.data() + 1);
     int numNodes;
     auto const begin = get_current_time_fenced();
-#ifdef TURING
-    device_make_trie<<<blocks,threads>>>(*t, b, input.data(), input.data() + input.size());
-    check(cudaDeviceSynchronize());
-#else
     numNodes = host_make_trie(t, input.data(), input.data() + input.size(), patternIdMap);
-    // $TODO - allow for parallel host construction
-#endif
+
     auto const end = get_current_time_fenced();
     auto const time = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-    auto const count = *b - nodes.data();
-    std::cout << "Assembled " << count << " nodes in " << time << "ms." << std::endl;
+
+    std::cout << "Assembled " << numNodes << " nodes in " << time << "ms." << std::endl;
 
     return numNodes;
 }

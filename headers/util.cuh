@@ -60,13 +60,6 @@ int host_make_trie(trieOptimized *root, const unsigned char *begin, const unsign
                    std::unordered_map<std::string, int> &patternIdMap);
 
 __host__ __device__
-void device_make_trie(trie &root, simt::std::atomic<trie *> &bump, const char *begin, const char *end, unsigned index,
-                      unsigned domain);
-
-__global__
-void gpu_make_trie(trie *t, simt::std::atomic<trie *> *bump, const char *begin, const char *end);
-
-__host__ __device__
 int index_of(char c);
 
 bool
